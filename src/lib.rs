@@ -13,6 +13,6 @@ mod simulator;
 pub mod ypso;
 
 pub use bridge::{AttError, Bridge, Outgoing};
-pub use console::{Command, Lines, ParseError};
+pub use console::{Alarm, Command, Lines, ParseError};
 pub use gatt::{services, Attribute, Attributes, Service};
 pub use simulator::Simulator;

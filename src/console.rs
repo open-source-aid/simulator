@@ -7,8 +7,18 @@ use core::str::FromStr;
 pub enum Command {
     Battery(u8),
     Reservoir(i32),
-    Alarms(i32),
+    Alarm(Alarm),
+    Acknowledge,
+    Stop,
+    Run,
     Reboot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Alarm {
+    Battery,
+    Reservoir,
+    Occlusion,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -18,7 +28,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "unknown command `{}`: expected battery <n>, reservoir <n>, alarms <n> or reboot",
+            "unknown command `{}`: expected battery <n>, reservoir <n>, alarm <battery|reservoir|occlusion>, acknowledge, stop, run or reboot",
             self.0
         )
     }
@@ -34,7 +44,12 @@ impl FromStr for Command {
         let command = match (words.next(), words.next(), words.next()) {
             (Some("battery"), Some(value), None) => value.parse().ok().map(Self::Battery),
             (Some("reservoir"), Some(value), None) => value.parse().ok().map(Self::Reservoir),
-            (Some("alarms"), Some(value), None) => value.parse().ok().map(Self::Alarms),
+            (Some("alarm"), Some("battery"), None) => Some(Self::Alarm(Alarm::Battery)),
+            (Some("alarm"), Some("reservoir"), None) => Some(Self::Alarm(Alarm::Reservoir)),
+            (Some("alarm"), Some("occlusion"), None) => Some(Self::Alarm(Alarm::Occlusion)),
+            (Some("acknowledge"), None, None) => Some(Self::Acknowledge),
+            (Some("stop"), None, None) => Some(Self::Stop),
+            (Some("run"), None, None) => Some(Self::Run),
             (Some("reboot"), None, None) => Some(Self::Reboot),
             _ => None,
         };
@@ -65,7 +80,18 @@ mod tests {
     fn parses_scenario_knobs() {
         assert_eq!("battery 1".parse(), Ok(Command::Battery(1)));
         assert_eq!(" reservoir  1500 ".parse(), Ok(Command::Reservoir(1500)));
-        assert_eq!("alarms 3".parse(), Ok(Command::Alarms(3)));
+        assert_eq!("alarm battery".parse(), Ok(Command::Alarm(Alarm::Battery)));
+        assert_eq!(
+            "alarm reservoir".parse(),
+            Ok(Command::Alarm(Alarm::Reservoir))
+        );
+        assert_eq!(
+            "alarm occlusion".parse(),
+            Ok(Command::Alarm(Alarm::Occlusion))
+        );
+        assert_eq!("acknowledge".parse(), Ok(Command::Acknowledge));
+        assert_eq!("stop".parse(), Ok(Command::Stop));
+        assert_eq!("run".parse(), Ok(Command::Run));
         assert_eq!("reboot".parse(), Ok(Command::Reboot));
     }
 
@@ -77,6 +103,8 @@ mod tests {
             "battery x",
             "battery 1 2",
             "reboot now",
+            "alarm",
+            "alarm fire",
             "fly 1",
         ] {
             assert_eq!(
@@ -86,7 +114,7 @@ mod tests {
         }
         assert_eq!(
             ParseError("fly".into()).to_string(),
-            "unknown command `fly`: expected battery <n>, reservoir <n>, alarms <n> or reboot"
+            "unknown command `fly`: expected battery <n>, reservoir <n>, alarm <battery|reservoir|occlusion>, acknowledge, stop, run or reboot"
         );
     }
 

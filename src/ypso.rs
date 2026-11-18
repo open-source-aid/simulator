@@ -7,7 +7,8 @@ use pump_ypso::protocol::uuids;
 
 use crate::Service;
 
-pub const ADVERTISED: Uuid = uuids::PUMP_BASE_SERVICE;
+pub const ADVERTISED: Uuid =
+    Uuid::from_bytes(0x669a0c200008969ee211fcff00000002_u128.to_be_bytes());
 
 const BASE: Uuid = uuids::PUMP_BASE_SERVICE;
 const SETTINGS: Uuid = uuids::SETTINGS_SERVICE;
@@ -87,11 +88,11 @@ mod sim {
     use alloc::string::String;
     use alloc::vec::Vec;
 
-    use pump_shared::Uuid;
+    use pump_shared::{Timestamp, Uuid};
     use pump_ypso::protocol::{assemble_serial, setting};
-    use pump_ypso::sim::YpsoSim;
+    use pump_ypso::sim::{self, YpsoSim};
 
-    use crate::{Command, Service, Simulator};
+    use crate::{Alarm, Command, Service, Simulator};
 
     impl Simulator for YpsoSim {
         fn name(&self) -> String {
@@ -110,12 +111,17 @@ mod sim {
             super::services(self.has_crypto_service())
         }
 
-        fn apply(&mut self, command: Command) {
+        fn apply(&mut self, command: Command, now: Timestamp) {
             match command {
                 Command::Battery(level) => self.battery = level,
                 Command::Reservoir(hundredths) => self.reservoir = hundredths,
-                Command::Alarms(count) => self.alarm_count = count,
-                Command::Reboot => self.reboot(),
+                Command::Alarm(Alarm::Battery) => self.alarm(sim::Alarm::BatteryEmpty, now),
+                Command::Alarm(Alarm::Reservoir) => self.alarm(sim::Alarm::CartridgeEmpty, now),
+                Command::Alarm(Alarm::Occlusion) => self.alarm(sim::Alarm::Occlusion, now),
+                Command::Acknowledge => self.acknowledge_alarms(),
+                Command::Stop => self.stop(now),
+                Command::Run => self.run(now),
+                Command::Reboot => self.reboot(now),
             }
         }
     }
@@ -123,8 +129,9 @@ mod sim {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use pump_shared::SimDevice;
-        use pump_shared::{Address, BleOp, Timestamp};
+        use pump_shared::{Address, BleOp, SimDevice};
+        use pump_ypso::protocol::uuids;
+        use std::vec::Vec;
 
         fn sim() -> YpsoSim {
             YpsoSim::new([0; 32], [0; 16])
@@ -135,23 +142,46 @@ mod sim {
             let sim = sim();
             assert_eq!(sim.name(), "YpsoPump_10155555");
             assert_eq!(sim.advertised(), super::super::ADVERTISED);
+            assert_ne!(sim.advertised(), uuids::PUMP_BASE_SERVICE);
             assert_eq!(sim.services().len(), 5);
         }
 
         #[test]
         fn applies_scenario_knobs() {
             let mut sim = sim();
-            sim.apply(Command::Battery(1));
-            sim.apply(Command::Reservoir(500));
-            sim.apply(Command::Alarms(2));
-            assert_eq!((sim.battery, sim.reservoir, sim.alarm_count), (1, 500, 2));
             let now = Timestamp::from_millis(0);
+            sim.apply(Command::Battery(1), now);
+            sim.apply(Command::Reservoir(500), now);
+            assert_eq!((sim.battery, sim.reservoir), (1, 500));
             let connect = BleOp::Connect {
                 address: Address::new([0; 6]),
             };
             sim.handle(&connect, now);
-            sim.apply(Command::Reboot);
+            sim.apply(Command::Reboot, now);
             assert_eq!((sim.reboot, sim.is_connected()), (1, false));
+        }
+
+        #[test]
+        fn logs_raised_alarms() {
+            let mut sim = sim();
+            let now = Timestamp::from_millis(0);
+            for alarm in [Alarm::Battery, Alarm::Reservoir, Alarm::Occlusion] {
+                sim.apply(Command::Alarm(alarm), now);
+            }
+            sim.apply(Command::Acknowledge, now);
+            let kinds: Vec<_> = sim.alarms.entries.iter().map(|e| e.kind).collect();
+            assert_eq!(kinds, [101, 104, 105]);
+        }
+
+        #[test]
+        fn stops_and_runs_delivery() {
+            let mut sim = sim();
+            let now = Timestamp::from_millis(0);
+            let mode = |sim: &YpsoSim| sim.settings[&setting::PUMP_MODE_SELECTION];
+            sim.apply(Command::Stop, now);
+            assert_eq!(mode(&sim), 3);
+            sim.apply(Command::Run, now);
+            assert_eq!(mode(&sim), 10);
         }
     }
 }

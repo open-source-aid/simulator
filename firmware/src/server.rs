@@ -38,7 +38,7 @@ impl Server {
     }
 
     pub fn apply(&self, command: Command) {
-        self.event(|bridge, _| bridge.device().apply(command));
+        self.event(|bridge, now| bridge.device().apply(command, now));
         if command == Command::Reboot {
             self.drop_link.signal(());
         }

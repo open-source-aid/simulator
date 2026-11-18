@@ -53,11 +53,15 @@ cd firmware
 cargo build --release
 ```
 
-Devices are selected by Cargo feature:
+The device is the `YpsoSim` from `pump-ypso`:
 
-- no feature: a `no_std` stand-in that answers the YpsoPump clear-text version reads
-- `ypso`: the real `YpsoSim` (encrypted), needs a `no_std` `pump-ypso` simulator
-- `opn`: `YpsoSim::opn`, clear text
+- `opn` (default): `YpsoSim::opn`, clear text
+- `--no-default-features`: `YpsoSim::new`, encrypted
+
+It advertises the YpsoPump service UUID `669A0C20-0008-969E-E211-FCFF00000002`.
+
+RAM from `0x20018000` (160 KB, the SoftDevice keeps what is below): 64 KB heap, 32 KB task arena,
+about 61 KB stack.
 
 Flash through the UF2 bootloader:
 
@@ -79,7 +83,9 @@ error:
 
 - `battery <n>` raw battery field
 - `reservoir <n>` reservoir in device units (YpsoPump: hundredths of a unit)
-- `alarms <n>` alarm history count
+- `alarm battery|reservoir|occlusion` raises the alarm and stops delivery
+- `acknowledge` clears the active alarm
+- `stop` / `run` stops or resumes delivery
 - `reboot` reboots the simulated device and drops the BLE link
 
 ## Check from a Mac
@@ -88,7 +94,7 @@ error:
 swift tools/check.swift YpsoPump_10155555
 ```
 
-Scans, connects, and reads the pump base service version (`1.2`).
+Scans, connects, and reads the pump base service version (`1.1` clear text, `1.2` encrypted).
 
 ## Licence
 
