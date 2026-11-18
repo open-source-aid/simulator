@@ -1,7 +1,11 @@
 import CoreBluetooth
 import Foundation
 
-let prefix = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "YpsoPump_"
+guard CommandLine.arguments.count == 2 else {
+    print("usage: swift tools/check.swift <exact simulator name>")
+    exit(2)
+}
+let target = CommandLine.arguments[1]
 let baseService = CBUUID(string: "fb349b5f-8000-0080-0010-0000adde0000")
 let versionCharacteristic = CBUUID(string: "669a0c20-0008-969e-e211-fcbee23b7bc5")
 
@@ -16,7 +20,7 @@ final class Check: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         guard central.state == .poweredOn else { return }
-        print("scanning for \(prefix)*")
+        print("scanning for \(target)")
         central.scanForPeripherals(withServices: nil)
     }
 
@@ -25,7 +29,7 @@ final class Check: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         advertisementData: [String: Any], rssi: NSNumber
     ) {
         let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name
-        guard let name, name.hasPrefix(prefix) else { return }
+        guard let name, name == target else { return }
         let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
         print("found \(name) rssi \(rssi) services \(services)")
         central.stopScan()

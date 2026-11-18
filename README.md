@@ -85,7 +85,7 @@ error:
 ## Check from a Mac
 
 ```sh
-swift tools/check.swift YpsoPump_
+swift tools/check.swift YpsoPump_10155555
 ```
 
 Scans, connects, and reads the pump base service version (`1.2`).
