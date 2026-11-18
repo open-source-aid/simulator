@@ -6,6 +6,7 @@ extern crate alloc;
 mod console;
 mod device;
 mod led;
+mod report;
 mod server;
 
 use core::mem::{self, MaybeUninit};
@@ -15,6 +16,7 @@ use core::ptr::addr_of_mut;
 use cortex_m_rt::{exception, ExceptionFrame};
 use embassy_executor::Spawner;
 use embassy_futures::select::select3;
+use embassy_nrf::config::HfclkSource;
 use embassy_nrf::interrupt::Priority;
 use embassy_nrf::usb::vbus_detect::SoftwareVbusDetect;
 use embedded_alloc::LlffHeap;
@@ -49,13 +51,13 @@ async fn softdevice(sd: &'static Softdevice, vbus: &'static SoftwareVbusDetect) 
 }
 
 #[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-    led::blink(led::RED)
+fn panic(info: &PanicInfo) -> ! {
+    report::save(info)
 }
 
 #[exception]
-unsafe fn HardFault(_: &ExceptionFrame) -> ! {
-    led::blink(led::RED | led::BLUE)
+unsafe fn HardFault(frame: &ExceptionFrame) -> ! {
+    report::save(format_args!("hard fault at pc {:#010x}", frame.pc()))
 }
 
 #[embassy_executor::main]
@@ -63,10 +65,18 @@ async fn main(spawner: Spawner) {
     static mut MEMORY: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
     unsafe { HEAP.init(addr_of_mut!(MEMORY) as usize, HEAP_SIZE) }
 
+    let report = report::stored();
     let mut config = embassy_nrf::config::Config::default();
     config.gpiote_interrupt_priority = Priority::P2;
     config.time_interrupt_priority = Priority::P2;
+    if report.is_some() {
+        config.hfclk_source = HfclkSource::ExternalXtal;
+    }
     let peripherals = embassy_nrf::init(config);
+    if let Some(text) = report {
+        spawner.must_spawn(console::report(peripherals.USBD, text));
+        led::blink(led::RED).await
+    }
     led::show(led::BLUE);
 
     let device = device::new();
@@ -89,6 +99,7 @@ async fn main(spawner: Spawner) {
     spawner.must_spawn(softdevice(sd, vbus));
     spawner.must_spawn(console::run(peripherals.USBD, vbus, server));
     led::show(led::GREEN);
+    report::clear();
 
     let adv_data = LegacyAdvertisementBuilder::new()
         .flags(&[Flag::GeneralDiscovery, Flag::LE_Only])
@@ -101,9 +112,9 @@ async fn main(spawner: Spawner) {
             scan_data: &scan_data,
         };
         let config = peripheral::Config::default();
-        let Ok(conn) = peripheral::advertise_connectable(sd, advertisement, &config).await else {
-            continue;
-        };
+        let conn = peripheral::advertise_connectable(sd, advertisement, &config)
+            .await
+            .expect("advertising runs");
         let mut peer = conn.peer_address().bytes();
         peer.reverse();
         server.connect(Address::new(peer));
