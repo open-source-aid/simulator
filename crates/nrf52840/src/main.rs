@@ -12,6 +12,7 @@ mod server;
 use core::mem::MaybeUninit;
 use core::panic::PanicInfo;
 use core::ptr::addr_of_mut;
+use embassy_time::Timer;
 
 use cortex_m_rt::{exception, ExceptionFrame};
 use embassy_executor::Spawner;
@@ -112,9 +113,10 @@ async fn main(spawner: Spawner) {
             scan_data: &scan_data,
         };
         let config = peripheral::Config::default();
-        let conn = peripheral::advertise_connectable(sd, advertisement, &config)
-            .await
-            .expect("advertising runs");
+        let Ok(conn) = peripheral::advertise_connectable(sd, advertisement, &config).await else {
+            Timer::after_millis(100).await;
+            continue;
+        };
         let mut peer = conn.peer_address().bytes();
         peer.reverse();
         server.connect(Address::new(peer));
