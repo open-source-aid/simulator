@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.85"
 description = "nRF52840 BLE peripheral firmware hosting pump and CGM simulators"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/u-osaid/simulator-nrf52840"
+repository = "https://github.com/u-osaid/simulator"
 publish = false
 
 [workspace]
