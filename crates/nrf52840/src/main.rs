@@ -9,7 +9,7 @@ mod led;
 mod report;
 mod server;
 
-use core::mem::{self, MaybeUninit};
+use core::mem::MaybeUninit;
 use core::panic::PanicInfo;
 use core::ptr::addr_of_mut;
 
@@ -83,7 +83,7 @@ async fn main(spawner: Spawner) {
     let name = device.name();
     let services = device.services();
     let advertised = uuid_bytes(device.advertised());
-    let sd = Softdevice::enable(&softdevice_config(&name, &services));
+    let sd = Softdevice::enable(&softdevice_config(&services));
     let attributes = register(sd, &services);
     static SERVER: StaticCell<Server> = StaticCell::new();
     let server = SERVER.init(Server::new(device, attributes));
@@ -170,12 +170,11 @@ fn register(sd: &mut Softdevice, services: &[Service]) -> Attributes {
     attributes
 }
 
-fn softdevice_config(name: &str, services: &[Service]) -> nrf_softdevice::Config {
+fn softdevice_config(services: &[Service]) -> nrf_softdevice::Config {
     let uuids = services
         .iter()
         .map(|s| 1 + s.characteristics.len())
         .sum::<usize>();
-    let name_len = name.len() as u16;
     nrf_softdevice::Config {
         clock: Some(raw::nrf_clock_lf_cfg_t {
             source: raw::NRF_CLOCK_LF_SRC_XTAL as u8,
@@ -202,15 +201,6 @@ fn softdevice_config(name: &str, services: &[Service]) -> nrf_softdevice::Config
             central_role_count: 0,
             central_sec_count: 0,
             _bitfield_1: raw::ble_gap_cfg_role_count_t::new_bitfield_1(0),
-        }),
-        gap_device_name: Some(raw::ble_gap_cfg_device_name_t {
-            p_value: name.as_ptr() as _,
-            current_len: name_len,
-            max_len: name_len,
-            write_perm: unsafe { mem::zeroed() },
-            _bitfield_1: raw::ble_gap_cfg_device_name_t::new_bitfield_1(
-                raw::BLE_GATTS_VLOC_STACK as u8,
-            ),
         }),
         ..Default::default()
     }
