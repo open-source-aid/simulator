@@ -1,0 +1,44 @@
+[package]
+name = "simulator-nrf52840-firmware"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "nRF52840 BLE peripheral firmware hosting pump and CGM simulators"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/u-osaid/simulator-nrf52840"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "simulator-nrf52840"
+path = "src/main.rs"
+test = false
+bench = false
+
+[features]
+ypso = ["simulator-nrf52840/ypso-sim", "pump-ypso/sim"]
+opn = ["ypso", "pump-ypso/opn"]
+
+[dependencies]
+simulator-nrf52840 = { path = "..", features = ["ypso"] }
+pump-shared = { git = "https://github.com/u-osaid/pump-shared", branch = "main", default-features = false, features = ["sim"] }
+pump-ypso = { git = "https://github.com/u-osaid/pump-yspo", branch = "main", default-features = false }
+nrf-softdevice = { git = "https://github.com/embassy-rs/nrf-softdevice", rev = "b0ac850", features = ["nrf52840", "s140", "ble-peripheral", "ble-gatt-server", "critical-section-impl"] }
+embassy-executor = { version = "0.7", features = ["arch-cortex-m", "executor-thread", "task-arena-size-32768"] }
+embassy-nrf = { version = "0.3", features = ["nrf52840", "time-driver-rtc1", "gpiote"] }
+embassy-time = "0.4"
+embassy-sync = "0.6"
+embassy-futures = "0.1"
+embassy-usb = "0.4"
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+embedded-alloc = "0.6"
+panic-halt = "1"
+static_cell = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+debug = 2
