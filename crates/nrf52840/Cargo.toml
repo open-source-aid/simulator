@@ -34,7 +34,6 @@ embassy-usb = "0.4"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 embedded-alloc = "0.6"
-panic-halt = "1"
 static_cell = "2"
 
 [profile.release]

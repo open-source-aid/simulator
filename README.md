@@ -51,8 +51,13 @@ The device is the `YpsoSim` from `pump-ypso`:
 
 It advertises the YpsoPump service UUID `669A0C20-0008-969E-E211-FCFF00000002`.
 
-RAM from `0x20018000` (160 KB, the SoftDevice keeps what is below): 64 KB heap, 32 KB task arena,
-about 61 KB stack.
+RAM from `0x2000A000` (216 KB, the SoftDevice keeps what is below, about 26 KB needed for one
+connection, a 16 KB attribute table and 40 vendor UUIDs): 64 KB heap, 32 KB task arena, about
+117 KB stack.
+
+The RGB LED shows how far the boot got: blue once the chip is initialised, green once the
+SoftDevice runs with the GATT table registered. Blinking red is a panic, blinking purple a hard
+fault.
 
 Flash through the UF2 bootloader:
 

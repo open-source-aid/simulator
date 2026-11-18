@@ -5,21 +5,24 @@ extern crate alloc;
 
 mod console;
 mod device;
+mod led;
 mod server;
 
 use core::mem::{self, MaybeUninit};
+use core::panic::PanicInfo;
 use core::ptr::addr_of_mut;
 
+use cortex_m_rt::{exception, ExceptionFrame};
 use embassy_executor::Spawner;
 use embassy_futures::select::select3;
 use embassy_nrf::interrupt::Priority;
+use embassy_nrf::usb::vbus_detect::SoftwareVbusDetect;
 use embedded_alloc::LlffHeap;
 use nrf_softdevice::ble::advertisement_builder::{Flag, LegacyAdvertisementBuilder, ServiceList};
 use nrf_softdevice::ble::gatt_server::builder::ServiceBuilder;
 use nrf_softdevice::ble::gatt_server::characteristic::{Attribute, Metadata, Properties};
 use nrf_softdevice::ble::{gatt_server, peripheral, Uuid};
-use nrf_softdevice::{raw, Softdevice};
-use panic_halt as _;
+use nrf_softdevice::{raw, SocEvent, Softdevice};
 use pump_shared::{Address, NotifyKind};
 use simulator_bridge::{Attributes, Service, Simulator};
 use static_cell::StaticCell;
@@ -28,13 +31,31 @@ use crate::server::Server;
 
 const HEAP_SIZE: usize = 64 * 1024;
 const MAX_VALUE: u16 = 244;
+const VBUS_DETECTED: u32 = 1;
+const VBUS_READY: u32 = 2;
 
 #[global_allocator]
 static HEAP: LlffHeap = LlffHeap::empty();
 
 #[embassy_executor::task]
-async fn softdevice(sd: &'static Softdevice) -> ! {
-    sd.run().await
+async fn softdevice(sd: &'static Softdevice, vbus: &'static SoftwareVbusDetect) -> ! {
+    sd.run_with_callback(|event| match event {
+        SocEvent::PowerUsbDetected | SocEvent::PowerUsbRemoved | SocEvent::PowerUsbPowerReady => {
+            track(vbus)
+        }
+        _ => {}
+    })
+    .await
+}
+
+#[panic_handler]
+fn panic(_: &PanicInfo) -> ! {
+    led::blink(led::RED)
+}
+
+#[exception]
+unsafe fn HardFault(_: &ExceptionFrame) -> ! {
+    led::blink(led::RED | led::BLUE)
 }
 
 #[embassy_executor::main]
@@ -46,6 +67,7 @@ async fn main(spawner: Spawner) {
     config.gpiote_interrupt_priority = Priority::P2;
     config.time_interrupt_priority = Priority::P2;
     let peripherals = embassy_nrf::init(config);
+    led::show(led::BLUE);
 
     let device = device::new();
     let name = device.name();
@@ -55,9 +77,18 @@ async fn main(spawner: Spawner) {
     let attributes = register(sd, &services);
     static SERVER: StaticCell<Server> = StaticCell::new();
     let server = SERVER.init(Server::new(device, attributes));
+    static VBUS: StaticCell<SoftwareVbusDetect> = StaticCell::new();
+    let vbus = &*VBUS.init(SoftwareVbusDetect::new(false, false));
+    unsafe {
+        raw::sd_power_usbdetected_enable(1);
+        raw::sd_power_usbremoved_enable(1);
+        raw::sd_power_usbpwrrdy_enable(1);
+    }
+    track(vbus);
     unsafe { raw::sd_clock_hfclk_request() };
-    spawner.must_spawn(softdevice(sd));
-    spawner.must_spawn(console::run(peripherals.USBD, server));
+    spawner.must_spawn(softdevice(sd, vbus));
+    spawner.must_spawn(console::run(peripherals.USBD, vbus, server));
+    led::show(led::GREEN);
 
     let adv_data = LegacyAdvertisementBuilder::new()
         .flags(&[Flag::GeneralDiscovery, Flag::LE_Only])
@@ -84,6 +115,15 @@ async fn main(spawner: Spawner) {
         .await;
         let _ = conn.disconnect();
         server.disconnect();
+    }
+}
+
+fn track(vbus: &SoftwareVbusDetect) {
+    let mut status = 0;
+    unsafe { raw::sd_power_usbregstatus_get(&mut status) };
+    vbus.detected(status & VBUS_DETECTED != 0);
+    if status & VBUS_READY != 0 {
+        vbus.ready();
     }
 }
 
@@ -127,10 +167,10 @@ fn softdevice_config(name: &str, services: &[Service]) -> nrf_softdevice::Config
     let name_len = name.len() as u16;
     nrf_softdevice::Config {
         clock: Some(raw::nrf_clock_lf_cfg_t {
-            source: raw::NRF_CLOCK_LF_SRC_RC as u8,
-            rc_ctiv: 16,
-            rc_temp_ctiv: 2,
-            accuracy: raw::NRF_CLOCK_LF_ACCURACY_500_PPM as u8,
+            source: raw::NRF_CLOCK_LF_SRC_XTAL as u8,
+            rc_ctiv: 0,
+            rc_temp_ctiv: 0,
+            accuracy: raw::NRF_CLOCK_LF_ACCURACY_20_PPM as u8,
         }),
         conn_gap: Some(raw::ble_gap_conn_cfg_t {
             conn_count: 1,

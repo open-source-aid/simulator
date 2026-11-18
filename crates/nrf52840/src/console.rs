@@ -26,10 +26,9 @@ bind_interrupts!(struct Irqs {
 type UsbDriver = Driver<'static, USBD, &'static SoftwareVbusDetect>;
 
 #[embassy_executor::task]
-pub async fn run(usbd: USBD, server: &'static Server) {
+pub async fn run(usbd: USBD, vbus: &'static SoftwareVbusDetect, server: &'static Server) {
     interrupt::USBD.set_priority(Priority::P2);
-    static VBUS: StaticCell<SoftwareVbusDetect> = StaticCell::new();
-    let driver = Driver::new(usbd, Irqs, &*VBUS.init(SoftwareVbusDetect::new(true, true)));
+    let driver = Driver::new(usbd, Irqs, vbus);
     let mut config = Config::new(0x2886, 0x8045);
     config.manufacturer = Some("u-osaid");
     config.product = Some("simulator-nrf52840");
