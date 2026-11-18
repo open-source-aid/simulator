@@ -1,3 +1,4 @@
 target/
-firmware/target/
+Cargo.lock
+!crates/nrf52840/Cargo.lock
 *.uf2

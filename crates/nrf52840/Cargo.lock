@@ -1100,7 +1100,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "simulator-nrf52840"
+name = "simulator-bridge"
 version = "0.1.0"
 dependencies = [
  "pump-shared",
@@ -1108,7 +1108,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "simulator-nrf52840-firmware"
+name = "simulator-nrf52840"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
@@ -1124,7 +1124,7 @@ dependencies = [
  "panic-halt",
  "pump-shared",
  "pump-ypso",
- "simulator-nrf52840",
+ "simulator-bridge",
  "static_cell",
 ]
 

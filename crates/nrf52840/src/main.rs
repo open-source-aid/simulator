@@ -21,7 +21,7 @@ use nrf_softdevice::ble::{gatt_server, peripheral, Uuid};
 use nrf_softdevice::{raw, Softdevice};
 use panic_halt as _;
 use pump_shared::{Address, NotifyKind};
-use simulator_nrf52840::{Attributes, Service, Simulator};
+use simulator_bridge::{Attributes, Service, Simulator};
 use static_cell::StaticCell;
 
 use crate::server::Server;

@@ -1,25 +1,16 @@
-# simulator-nrf52840
+# simulator
 
-A physical BLE peripheral that impersonates a medical device (insulin pump now, CGM later) so a
-real phone app (AndroidAPS, Loop, Trio) can be tested end to end against a simulator.
+Device-agnostic BLE simulators: a physical (or host) peripheral that impersonates a medical device, insulin pumps today, CGMs and other devices later, so a driver or a real phone app can be tested end to end.
 
-Any `pump_shared::SimDevice` that also implements `simulator_nrf52840::Simulator` (name,
-advertised service, GATT table, scenario knobs) plugs in. The first one is the YpsoPump simulator
-`YpsoSim` from `pump-ypso`.
-
-Target: Seeed XIAO nRF52840 (Sense), S140 7.3.0 SoftDevice and the Adafruit UF2 bootloader that
-ship on the board; Embassy + `nrf-softdevice`, `no_std` + `alloc`.
+Any `pump_shared::SimDevice` that also implements `simulator_bridge::Simulator` (name, advertised service, GATT table, scenario knobs) plugs in. Device simulators live in their driver crate behind its `sim` feature; the first one is `YpsoSim` from `pump-ypso`.
 
 ## Layout
 
-- `src/` host-testable, `no_std` library `simulator-nrf52840`
-  - `bridge.rs` GATT peripheral events to `SimDevice` operations
-  - `gatt.rs` services from a `GattChar` table, attribute handle map
-  - `console.rs` serial console commands and line splitting
-  - `simulator.rs` the `Simulator` trait a device implements to be hosted
-  - `ypso.rs` YpsoPump GATT table, name, and `Simulator` for `YpsoSim` (feature `ypso-sim`)
-- `firmware/` the nRF52840 binary (separate crate, cross-compiled)
-- `tools/uf2.py` binary to UF2 converter, `tools/check.swift` macOS BLE central check
+| Path | Role |
+|---|---|
+| `crates/bridge` (`simulator-bridge`) | host-testable `no_std` library: GATT peripheral events to `SimDevice` operations (`bridge.rs`), GATT tables (`gatt.rs`), serial console (`console.rs`), the `Simulator` trait (`simulator.rs`), YpsoPump hosting (`ypso.rs`, feature `ypso-sim`) |
+| `crates/nrf52840` (`simulator-nrf52840`) | firmware for the Seeed XIAO nRF52840 (Sense): S140 7.3.0 SoftDevice, UF2 bootloader, Embassy + `nrf-softdevice`, cross-compiled outside the workspace |
+| `tools/uf2.py`, `tools/check.swift` | binary to UF2 converter, macOS BLE central check |
 
 ## Bridge mapping
 
@@ -49,7 +40,7 @@ cargo clippy --all-features --all-targets -- -D warnings
 
 ```sh
 rustup target add thumbv7em-none-eabihf
-cd firmware
+cd crates/nrf52840
 cargo build --release
 ```
 
@@ -68,7 +59,7 @@ Flash through the UF2 bootloader:
 ```sh
 B=$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/host: //p')/bin
 $B/llvm-objcopy -O binary target/thumbv7em-none-eabihf/release/simulator-nrf52840 target/simulator-nrf52840.bin
-python3 ../tools/uf2.py target/simulator-nrf52840.bin 0x27000 target/simulator-nrf52840.uf2
+python3 ../../tools/uf2.py target/simulator-nrf52840.bin 0x27000 target/simulator-nrf52840.uf2
 cp target/simulator-nrf52840.uf2 /Volumes/XIAO-SENSE/
 ```
 

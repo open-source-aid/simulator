@@ -8,7 +8,7 @@ use embassy_time::{Duration, Instant, Timer};
 use nrf_softdevice::ble::gatt_server::{self, WriteOp};
 use nrf_softdevice::ble::{Connection, DeferredReadReply, DeferredWriteReply, GattError};
 use pump_shared::{Address, NotifyKind, Timestamp};
-use simulator_nrf52840::{AttError, Attributes, Bridge, Command, Simulator};
+use simulator_bridge::{AttError, Attributes, Bridge, Command, Simulator};
 
 use crate::device::Device;
 

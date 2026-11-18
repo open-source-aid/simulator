@@ -10,7 +10,7 @@ use embassy_nrf::usb::{self, Driver};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, Sender, State};
 use embassy_usb::{Builder, Config};
 use nrf_softdevice::raw;
-use simulator_nrf52840::{Command, Lines};
+use simulator_bridge::{Command, Lines};
 use static_cell::StaticCell;
 
 use crate::server::Server;

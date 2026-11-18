@@ -1,19 +1,4 @@
-[package]
-name = "simulator-nrf52840"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.85"
-description = "Device-agnostic bridge from BLE GATT peripheral events to pump-shared simulators, for nRF52840 test peripherals"
-license = "AGPL-3.0-or-later"
-repository = "https://github.com/u-osaid/simulator-nrf52840"
-keywords = ["insulin", "pump", "cgm", "ble", "simulator"]
-categories = ["no-std", "embedded", "development-tools::testing"]
-exclude = ["firmware"]
-
-[features]
-ypso = ["dep:pump-ypso"]
-ypso-sim = ["ypso", "pump-ypso/sim"]
-
-[dependencies]
-pump-shared = { git = "https://github.com/u-osaid/pump-shared", branch = "main", default-features = false, features = ["sim"] }
-pump-ypso = { git = "https://github.com/u-osaid/pump-yspo", branch = "main", default-features = false, optional = true }
+[workspace]
+resolver = "2"
+members = ["crates/bridge"]
+exclude = ["crates/nrf52840"]

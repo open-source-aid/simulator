@@ -1,5 +1,5 @@
 [package]
-name = "simulator-nrf52840-firmware"
+name = "simulator-nrf52840"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
@@ -21,7 +21,7 @@ default = ["opn"]
 opn = ["pump-ypso/opn"]
 
 [dependencies]
-simulator-nrf52840 = { path = "..", features = ["ypso-sim"] }
+simulator-bridge = { path = "../bridge", features = ["ypso-sim"] }
 pump-shared = { git = "https://github.com/u-osaid/pump-shared", branch = "main", default-features = false, features = ["sim"] }
 pump-ypso = { git = "https://github.com/u-osaid/pump-yspo", branch = "main", default-features = false, features = ["sim"] }
 nrf-softdevice = { git = "https://github.com/embassy-rs/nrf-softdevice", rev = "b0ac850", features = ["nrf52840", "s140", "ble-peripheral", "ble-gatt-server", "critical-section-impl"] }

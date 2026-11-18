@@ -1,0 +1,18 @@
+[package]
+name = "simulator-bridge"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Device-agnostic bridge from BLE GATT peripheral events to device simulators"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/u-osaid/simulator"
+keywords = ["insulin", "pump", "cgm", "ble", "simulator"]
+categories = ["no-std", "embedded", "development-tools::testing"]
+
+[features]
+ypso = ["dep:pump-ypso"]
+ypso-sim = ["ypso", "pump-ypso/sim"]
+
+[dependencies]
+pump-shared = { git = "https://github.com/u-osaid/pump-shared", branch = "main", default-features = false, features = ["sim"] }
+pump-ypso = { git = "https://github.com/u-osaid/pump-yspo", branch = "main", default-features = false, optional = true }
