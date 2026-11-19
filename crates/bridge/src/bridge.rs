@@ -38,6 +38,7 @@ pub struct Bridge<D> {
     attributes: Attributes,
     subscriptions: BTreeMap<(Uuid, Uuid), (u16, NotifyKind)>,
     last_read: Option<(u16, Vec<u8>)>,
+    offset: u64,
 }
 
 impl<D: SimDevice> Bridge<D> {
@@ -47,6 +48,7 @@ impl<D: SimDevice> Bridge<D> {
             attributes,
             subscriptions: BTreeMap::new(),
             last_read: None,
+            offset: 0,
         }
     }
 
@@ -54,13 +56,23 @@ impl<D: SimDevice> Bridge<D> {
         &mut self.device
     }
 
+    pub fn shifted(&self, now: Timestamp) -> Timestamp {
+        Timestamp::from_millis(now.as_millis().saturating_add(self.offset))
+    }
+
+    pub fn advance(&mut self, millis: u64) {
+        self.offset = self.offset.saturating_add(millis);
+    }
+
     pub fn connect(&mut self, address: Address, now: Timestamp) -> Result<(), AttError> {
         self.forget();
+        let now = self.shifted(now);
         done(self.device.handle(&BleOp::Connect { address }, now))
     }
 
     pub fn disconnect(&mut self, now: Timestamp) -> Result<(), AttError> {
         self.forget();
+        let now = self.shifted(now);
         done(self.device.handle(&BleOp::Disconnect, now))
     }
 
@@ -78,6 +90,7 @@ impl<D: SimDevice> Bridge<D> {
                 service: characteristic.service,
                 characteristic: characteristic.characteristic,
             };
+            let now = self.shifted(now);
             self.last_read = Some((handle, data(self.device.handle(&op, now))?));
         }
         match &self.last_read {
@@ -94,6 +107,7 @@ impl<D: SimDevice> Bridge<D> {
                     characteristic: characteristic.characteristic,
                     data: data.to_vec(),
                 };
+                let now = self.shifted(now);
                 done(self.device.handle(&op, now))
             }
             Some(Attribute::Cccd {
@@ -105,6 +119,7 @@ impl<D: SimDevice> Bridge<D> {
     }
 
     pub fn poll(&mut self, now: Timestamp) -> Option<Outgoing> {
+        let now = self.shifted(now);
         loop {
             let notification = self.device.poll_notification(now)?;
             let key = (notification.service, notification.characteristic);
@@ -128,6 +143,7 @@ impl<D: SimDevice> Bridge<D> {
         let &[bits, _] = data else {
             return Err(AttError::INVALID_LENGTH);
         };
+        let now = self.shifted(now);
         let service = characteristic.service;
         let uuid = characteristic.characteristic;
         self.subscriptions.remove(&(service, uuid));
@@ -219,16 +235,18 @@ mod tests {
         ops: Vec<BleOp>,
         answers: VecDeque<BleResult>,
         notifications: VecDeque<Notification>,
+        nows: Vec<Timestamp>,
     }
 
     impl SimDevice for Fake {
         fn handle(&mut self, op: &BleOp, now: Timestamp) -> BleResult {
-            assert_eq!(now, Timestamp::from_millis(7));
+            self.nows.push(now);
             self.ops.push(op.clone());
             self.answers.pop_front().unwrap_or(BleResult::Done)
         }
 
-        fn poll_notification(&mut self, _now: Timestamp) -> Option<Notification> {
+        fn poll_notification(&mut self, now: Timestamp) -> Option<Notification> {
+            self.nows.push(now);
             self.notifications.pop_front()
         }
     }
@@ -410,6 +428,31 @@ mod tests {
         assert_eq!(bridge.device().ops.len(), 1);
         bridge.device().notifications = [notification(status(), 1)].into();
         assert_eq!(bridge.poll(NOW), None);
+    }
+
+    #[test]
+    fn passes_the_clock_through_untouched_without_an_advance() {
+        let mut bridge = bridge([BleResult::Done, BleResult::Data(vec![1])]);
+        bridge.connect(ADDRESS, NOW).unwrap();
+        bridge.read(10, 0, NOW).unwrap();
+        bridge.write(21, &[1, 0], NOW).unwrap();
+        bridge.poll(NOW);
+        assert!(bridge.device().nows.iter().all(|&now| now == NOW));
+    }
+
+    #[test]
+    fn an_advance_shifts_every_device_clock_forward() {
+        let mut bridge = bridge([BleResult::Done, BleResult::Data(vec![1])]);
+        assert_eq!(bridge.shifted(NOW), NOW);
+        bridge.advance(900_000);
+        bridge.advance(100_000);
+        let later = Timestamp::from_millis(NOW.as_millis() + 1_000_000);
+        assert_eq!(bridge.shifted(NOW), later);
+        bridge.connect(ADDRESS, NOW).unwrap();
+        bridge.read(10, 0, NOW).unwrap();
+        bridge.write(21, &[1, 0], NOW).unwrap();
+        bridge.poll(NOW);
+        assert!(bridge.device().nows.iter().all(|&now| now == later));
     }
 
     #[test]

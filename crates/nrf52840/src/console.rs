@@ -12,7 +12,7 @@ use embassy_time::Timer;
 use embassy_usb::class::cdc_acm::{CdcAcmClass, Receiver, Sender, State};
 use embassy_usb::{Builder, Config, UsbDevice};
 use nrf_softdevice::raw;
-use simulator_bridge::{Command, Lines};
+use simulator_bridge::{Line, Lines};
 use static_cell::StaticCell;
 
 use crate::server::Server;
@@ -74,9 +74,13 @@ async fn serve<V: VbusDetect + 'static>(class: CdcAcmClass<'static, Usb<V>>, ser
         match select(rx.read_packet(&mut packet), control.control_changed()).await {
             Either::First(Ok(len)) => {
                 for line in packet[..len].iter().filter_map(|&byte| lines.push(byte)) {
-                    let reply = match line.parse::<Command>() {
-                        Ok(command) => {
+                    let reply = match line.parse::<Line>() {
+                        Ok(Line::Knob(command)) => {
                             server.apply(command);
+                            format!("ok: {}\r\n", line.trim())
+                        }
+                        Ok(Line::Advance(seconds)) => {
+                            server.advance(seconds.saturating_mul(1000));
                             format!("ok: {}\r\n", line.trim())
                         }
                         Err(error) => format!("{error}\r\n"),

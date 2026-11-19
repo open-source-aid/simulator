@@ -38,10 +38,17 @@ impl Server {
     }
 
     pub fn apply(&self, command: Command) {
-        self.event(|bridge, now| bridge.device().apply(command, now));
+        self.event(|bridge, now| {
+            let now = bridge.shifted(now);
+            bridge.device().apply(command, now);
+        });
         if command == Command::Reboot {
             self.drop_link.signal(());
         }
+    }
+
+    pub fn advance(&self, millis: u64) {
+        self.event(|bridge, _now| bridge.advance(millis));
     }
 
     pub async fn dropped(&self) {

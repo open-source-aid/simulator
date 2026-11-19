@@ -21,6 +21,26 @@ pub enum Alarm {
     Occlusion,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Line {
+    Knob(Command),
+    Advance(u64),
+}
+
+impl FromStr for Line {
+    type Err = ParseError;
+
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
+        let mut words = line.split_whitespace();
+        if let (Some("advance"), Some(value), None) = (words.next(), words.next(), words.next()) {
+            if let Ok(seconds) = value.parse() {
+                return Ok(Self::Advance(seconds));
+            }
+        }
+        line.parse().map(Self::Knob)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParseError(String);
 
@@ -116,6 +136,20 @@ mod tests {
             ParseError("fly".into()).to_string(),
             "unknown command `fly`: expected battery <n>, reservoir <n>, alarm <battery|reservoir|occlusion>, acknowledge, stop, run or reboot"
         );
+    }
+
+    #[test]
+    fn parses_an_advance_or_falls_back_to_a_knob() {
+        assert_eq!("advance 900".parse(), Ok(Line::Advance(900)));
+        assert_eq!("advance 0".parse(), Ok(Line::Advance(0)));
+        assert_eq!("stop".parse(), Ok(Line::Knob(Command::Stop)));
+        assert_eq!("battery 4".parse(), Ok(Line::Knob(Command::Battery(4))));
+        for line in ["advance", "advance x", "advance 1 2", "fly"] {
+            assert_eq!(
+                line.parse::<Line>(),
+                Err(ParseError(line.trim().to_string()))
+            );
+        }
     }
 
     #[test]
