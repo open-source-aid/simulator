@@ -47,7 +47,9 @@ cargo build --release
 The device is the `YpsoSim` from `pump-ypso`:
 
 - `opn` (default): `YpsoSim::opn`, clear text
-- `--no-default-features`: `YpsoSim::new`, encrypted
+- `--no-default-features`: `YpsoSim::new`, encrypted, session key `[0xA5; 32]`
+
+Both builds use the offline-pairing server key `0xCAFE` repeated (32 bytes).
 
 It advertises the YpsoPump service UUID `669A0C20-0008-969E-E211-FCFF00000002`.
 
