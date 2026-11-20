@@ -25,6 +25,7 @@ pub enum Alarm {
 pub enum Line {
     Knob(Command),
     Advance(u64),
+    Reset,
 }
 
 impl FromStr for Line {
@@ -32,10 +33,14 @@ impl FromStr for Line {
 
     fn from_str(line: &str) -> Result<Self, Self::Err> {
         let mut words = line.split_whitespace();
-        if let (Some("advance"), Some(value), None) = (words.next(), words.next(), words.next()) {
-            if let Ok(seconds) = value.parse() {
-                return Ok(Self::Advance(seconds));
+        match (words.next(), words.next(), words.next()) {
+            (Some("advance"), Some(value), None) => {
+                if let Ok(seconds) = value.parse() {
+                    return Ok(Self::Advance(seconds));
+                }
             }
+            (Some("reset"), None, None) => return Ok(Self::Reset),
+            _ => {}
         }
         line.parse().map(Self::Knob)
     }
@@ -139,12 +144,13 @@ mod tests {
     }
 
     #[test]
-    fn parses_an_advance_or_falls_back_to_a_knob() {
+    fn parses_an_advance_a_reset_or_falls_back_to_a_knob() {
         assert_eq!("advance 900".parse(), Ok(Line::Advance(900)));
         assert_eq!("advance 0".parse(), Ok(Line::Advance(0)));
+        assert_eq!("reset".parse(), Ok(Line::Reset));
         assert_eq!("stop".parse(), Ok(Line::Knob(Command::Stop)));
         assert_eq!("battery 4".parse(), Ok(Line::Knob(Command::Battery(4))));
-        for line in ["advance", "advance x", "advance 1 2", "fly"] {
+        for line in ["advance", "advance x", "advance 1 2", "reset now", "fly"] {
             assert_eq!(
                 line.parse::<Line>(),
                 Err(ParseError(line.trim().to_string()))

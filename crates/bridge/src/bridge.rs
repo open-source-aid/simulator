@@ -64,6 +64,11 @@ impl<D: SimDevice> Bridge<D> {
         self.offset = self.offset.saturating_add(millis);
     }
 
+    pub fn reset(&mut self) {
+        self.offset = 0;
+        self.forget();
+    }
+
     pub fn connect(&mut self, address: Address, now: Timestamp) -> Result<(), AttError> {
         self.forget();
         let now = self.shifted(now);
@@ -453,6 +458,17 @@ mod tests {
         bridge.write(21, &[1, 0], NOW).unwrap();
         bridge.poll(NOW);
         assert!(bridge.device().nows.iter().all(|&now| now == later));
+    }
+
+    #[test]
+    fn a_reset_clears_the_clock_offset_and_subscriptions() {
+        let mut bridge = bridge([BleResult::Done]);
+        bridge.advance(900_000);
+        bridge.write(21, &[1, 0], NOW).unwrap();
+        bridge.reset();
+        assert_eq!(bridge.shifted(NOW), NOW);
+        bridge.device().notifications = [notification(status(), 1)].into();
+        assert_eq!(bridge.poll(NOW), None);
     }
 
     #[test]

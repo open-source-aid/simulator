@@ -83,6 +83,10 @@ async fn serve<V: VbusDetect + 'static>(class: CdcAcmClass<'static, Usb<V>>, ser
                             server.advance(seconds.saturating_mul(1000));
                             format!("ok: {}\r\n", line.trim())
                         }
+                        Ok(Line::Reset) => {
+                            server.reset();
+                            format!("ok: {}\r\n", line.trim())
+                        }
                         Err(error) => format!("{error}\r\n"),
                     };
                     write(&mut tx, reply.as_bytes()).await;

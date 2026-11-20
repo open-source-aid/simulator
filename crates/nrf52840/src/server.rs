@@ -51,6 +51,14 @@ impl Server {
         self.event(|bridge, _now| bridge.advance(millis));
     }
 
+    pub fn reset(&self) {
+        self.event(|bridge, _now| {
+            *bridge.device() = crate::device::new();
+            bridge.reset();
+        });
+        self.drop_link.signal(());
+    }
+
     pub async fn dropped(&self) {
         self.drop_link.reset();
         self.drop_link.wait().await
