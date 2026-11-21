@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.85"
 description = "nRF52840 BLE peripheral firmware hosting pump and CGM simulators"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/u-osaid/simulator"
+repository = "https://github.com/open-source-aid/simulator"
 publish = false
 
 [workspace]
@@ -22,8 +22,8 @@ opn = ["pump-ypso/opn"]
 
 [dependencies]
 simulator-bridge = { path = "../bridge", features = ["ypso-sim"] }
-pump-shared = { git = "https://github.com/u-osaid/pump-shared", branch = "main", default-features = false, features = ["sim"] }
-pump-ypso = { git = "https://github.com/u-osaid/pump-yspo", branch = "main", default-features = false, features = ["sim"] }
+pump-shared = { git = "https://github.com/open-source-aid/pump-shared", branch = "main", default-features = false, features = ["sim"] }
+pump-ypso = { git = "https://github.com/open-source-aid/pump-ypso", branch = "main", default-features = false, features = ["sim"] }
 nrf-softdevice = { git = "https://github.com/embassy-rs/nrf-softdevice", rev = "b0ac850", features = ["nrf52840", "s140", "ble-peripheral", "ble-gatt-server", "critical-section-impl"] }
 embassy-executor = { version = "0.7", features = ["arch-cortex-m", "executor-thread", "task-arena-size-32768"] }
 embassy-nrf = { version = "0.3", features = ["nrf52840", "time-driver-rtc1", "gpiote"] }
